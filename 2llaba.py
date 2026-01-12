@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import List
 
+DATA_FILE = "pressure_data.txt"
+
 
 class PressureMeasurement:
     """Represents a single pressure measurement."""
@@ -11,17 +13,21 @@ class PressureMeasurement:
         self.value = value
 
     def date_as_datetime(self) -> datetime:
-        """Converts date string to datetime object."""
         return datetime.strptime(self.date, "%Y.%m.%d")
 
+    def to_file_string(self) -> str:
+        return f"{self.date} {self.height} {self.value}"
+
+    @staticmethod
+    def from_file_string(line: str):
+        tokens = line.strip().split()
+        return PressureMeasurement(tokens[0], float(tokens[1]), int(tokens[2]))
+
     def display(self) -> None:
-        """Prints the measurement in table format."""
         print(f"{self.date:12} | {self.height:8.1f} м | {self.value:6} Па")
 
 
 class PressureParser:
-    """Parses user input into PressureMeasurement objects."""
-
     @staticmethod
     def parse(input_str: str) -> PressureMeasurement:
         tokens = split_input(input_str)
@@ -35,18 +41,15 @@ class PressureParser:
 
 
 def split_input(text: str) -> List[str]:
-    """Splits user input into tokens."""
     return text.split()
 
 
 def validate_token_count(tokens: List[str]) -> None:
-    """Validates number of tokens."""
     if len(tokens) != 3:
         raise ValueError("Введите: ДАТА ВЫСОТА ЗНАЧЕНИЕ")
 
 
 def parse_date(date: str) -> str:
-    """Validates and returns date."""
     try:
         datetime.strptime(date, "%Y.%m.%d")
         return date
@@ -55,7 +58,6 @@ def parse_date(date: str) -> str:
 
 
 def parse_height(value: str) -> float:
-    """Parses and validates height."""
     height = float(value)
     if height < 0:
         raise ValueError("Высота не может быть отрицательной")
@@ -63,7 +65,6 @@ def parse_height(value: str) -> float:
 
 
 def parse_pressure(value: str) -> int:
-    """Parses and validates pressure."""
     pressure = int(value)
     if pressure <= 0:
         raise ValueError("Давление должно быть положительным")
@@ -71,12 +72,10 @@ def parse_pressure(value: str) -> int:
 
 
 def show_header() -> None:
-    """Prints application header."""
     print("\n=== БАЗА ИЗМЕРЕНИЙ ДАВЛЕНИЯ ===")
 
 
 def show_menu() -> None:
-    """Prints menu."""
     print("""
 1 — Добавить измерение
 2 — Показать все измерения
@@ -86,18 +85,34 @@ def show_menu() -> None:
 """)
 
 
+def load_from_file() -> List[PressureMeasurement]:
+    measurements = []
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as file:
+            for line in file:
+                measurements.append(PressureMeasurement.from_file_string(line))
+    except FileNotFoundError:
+        pass
+    return measurements
+
+
+def save_to_file(data: List[PressureMeasurement]) -> None:
+    with open(DATA_FILE, "w", encoding="utf-8") as file:
+        for item in data:
+            file.write(item.to_file_string() + "\n")
+
+
 def add_measurement(storage: List[PressureMeasurement]) -> None:
-    """Adds a new measurement to storage."""
     try:
         user_input = input("Введите: ДАТА ВЫСОТА ЗНАЧЕНИЕ: ")
         storage.append(PressureParser.parse(user_input))
+        save_to_file(storage)
         print("Добавлено!\n")
     except ValueError as error:
         print("Ошибка:", error)
 
 
 def print_table(data: List[PressureMeasurement]) -> None:
-    """Prints measurements table."""
     if not data:
         print("Нет данных.")
         return
@@ -110,22 +125,19 @@ def print_table(data: List[PressureMeasurement]) -> None:
 
 
 def sort_by_date(data: List[PressureMeasurement]) -> None:
-    """Sorts measurements by date."""
     data.sort(key=lambda x: x.date_as_datetime())
+    save_to_file(data)
     print("Отсортировано по дате.")
 
 
 def show_top5(data: List[PressureMeasurement]) -> None:
-    """Shows top 5 highest pressure values."""
     top = sorted(data, key=lambda x: x.value, reverse=True)[:5]
     print("\nТОП-5 максимальных давлений:")
     print_table(top)
 
 
 def main() -> None:
-    """Program entry point."""
-    measurements: List[PressureMeasurement] = []
-
+    measurements = load_from_file()
     show_header()
 
     while True:
@@ -141,6 +153,7 @@ def main() -> None:
         elif choice == "4":
             show_top5(measurements)
         elif choice == "0":
+            save_to_file(measurements)
             print("До свидания!")
             break
         else:
